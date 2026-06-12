@@ -55,10 +55,10 @@ svg { width: 100%; height: 100%; }
   background: none; border: none; color: #888; cursor: pointer; font-size: 1.1rem; }
 #close-panel:hover { color: #fff; }
 #search-results {
-  position: fixed; left: 50%; top: 46px; transform: translateX(-50%);
+  position: fixed; left: 8px; right: 8px; top: 46px;
   background: #16213e; border: 1px solid #0f3460;
-  border-radius: 0 0 8px 8px; max-height: 300px; overflow-y: auto;
-  z-index: 200; min-width: 300px; display: none;
+  border-radius: 0 0 8px 8px; max-height: 55vh; overflow-y: auto;
+  z-index: 200; display: none;
   box-shadow: 0 4px 16px rgba(0,0,0,0.5);
 }
 .search-item { padding: 8px 14px; cursor: pointer; font-size: 0.85rem; border-bottom: 1px solid #1a1a2e; }
@@ -79,6 +79,16 @@ svg { width: 100%; height: 100%; }
   background: #16213e; border: 1px solid #0f3460;
   border-radius: 8px; padding: 10px 14px; font-size: 0.73rem; color: #888; z-index: 50;
   max-width: 180px; line-height: 1.7;
+}
+@media (max-width: 600px) {
+  #header { padding: 8px 10px; gap: 8px; }
+  #header h1 { display: none; }
+  #search { max-width: 100%; font-size: 1rem; padding: 9px 14px; }
+  .badge { display: none; }
+  #legend { display: none; }
+  #instructions { display: none; }
+  #info-panel { width: 100%; border-left: none; border-top: 1px solid #0f3460; top: auto; bottom: 0; height: 50vh; transform: translateY(100%); }
+  #info-panel.open { transform: translateY(0); }
 }
 </style>
 </head>
@@ -143,8 +153,7 @@ let nodeUid = 0;
 const zoom = d3.zoom().scaleExtent([0.04, 3])
   .on("zoom", event => zoomLayer.attr("transform", event.transform));
 svg.call(zoom);
-const initH = window.innerHeight - 46;
-svg.call(zoom.transform, d3.zoomIdentity.translate(150, initH / 2).scale(0.65));
+// Initial view is set after first render (fitView)
 
 function diagonal(d) {
   const sx = d.source.y, sy = d.source.x, tx = d.target.y, ty = d.target.x, mx = (sx + tx) / 2;
@@ -261,6 +270,28 @@ function toggle(d) {
 root.x0 = 0; root.y0 = 0;
 update(root);
 
+// Fit visible nodes to viewport after first render
+(function fitView() {
+  const svgEl = document.getElementById("tree-svg");
+  const W = svgEl.clientWidth, H = svgEl.clientHeight;
+  const visibleNodes = root.descendants(); // only expanded nodes (depth 0-1)
+  if (!visibleNodes.length) return;
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  visibleNodes.forEach(d => {
+    if (d.x !== undefined) {
+      x0 = Math.min(x0, d.x); x1 = Math.max(x1, d.x);
+      y0 = Math.min(y0, d.y); y1 = Math.max(y1, d.y);
+    }
+  });
+  const pad = 80;
+  const treeW = y1 - y0 + pad * 2;
+  const treeH = x1 - x0 + pad * 2;
+  const scale = Math.min(W / treeW, H / treeH, 1.4); // cap at 1.4
+  const tx = W / 2 - (y0 + (y1 - y0) / 2) * scale;
+  const ty = H / 2 - (x0 + (x1 - x0) / 2) * scale;
+  svg.call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+})();
+
 // ── Info panel ────────────────────────────────────────────────────────────────
 function showPanel(d) {
   const isLeaf = d.data.is_leaf_child;
@@ -365,10 +396,16 @@ document.getElementById("btn-reset").onclick = () => {
   });
   update(root);
   nodesLayer.selectAll("g.node").classed("found", false).classed("ancestor", false);
-  const h2 = window.innerHeight - 46;
-  svg.transition().duration(600).call(
-    zoom.transform, d3.zoomIdentity.translate(150, h2 / 2).scale(0.65)
-  );
+  setTimeout(() => {
+    const svgEl = document.getElementById("tree-svg");
+    const W = svgEl.clientWidth, H = svgEl.clientHeight;
+    const vis = root.descendants();
+    let x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;
+    vis.forEach(d => { if(d.x!==undefined){x0=Math.min(x0,d.x);x1=Math.max(x1,d.x);y0=Math.min(y0,d.y);y1=Math.max(y1,d.y);} });
+    const pad=80, scale=Math.min(W/(y1-y0+pad*2), H/(x1-x0+pad*2), 1.4);
+    const tx=W/2-(y0+(y1-y0)/2)*scale, ty=H/2-(x0+(x1-x0)/2)*scale;
+    svg.transition().duration(600).call(zoom.transform, d3.zoomIdentity.translate(tx,ty).scale(scale));
+  }, 450);
   document.getElementById("info-panel").classList.remove("open");
 };
 </script>
