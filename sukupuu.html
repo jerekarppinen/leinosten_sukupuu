@@ -6,26 +6,27 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html { overflow: hidden; max-width: 100vw; }
-body { font-family: 'Segoe UI', Arial, sans-serif; background: #1a1a2e; color: #eee; height: 100vh; overflow: hidden; max-width: 100vw; }
+html, body { height: 100%; overflow: hidden; }
+body { font-family: 'Segoe UI', Arial, sans-serif; background: #1a1a2e; color: #eee; }
 #header {
   position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-  background: #16213e; padding: 8px 16px;
-  display: flex; align-items: center; gap: 12px;
+  background: #16213e; padding: 8px 12px;
+  display: flex; align-items: center; gap: 8px;
   border-bottom: 1px solid #0f3460; box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  flex-wrap: nowrap;
 }
-#header h1 { font-size: 1rem; color: #e94560; white-space: nowrap; }
+#header h1 { font-size: 1rem; color: #e94560; white-space: nowrap; flex-shrink: 0; }
 #search {
-  flex: 1; padding: 6px 12px; border-radius: 20px;
+  flex: 1; min-width: 0; padding: 8px 14px; border-radius: 20px;
   border: 1px solid #0f3460; background: #0f3460; color: #eee;
-  font-size: 0.85rem; outline: none; max-width: 280px;
+  font-size: 1rem; outline: none;
 }
 #search:focus { border-color: #e94560; }
-.badge { background: #0f3460; border-radius: 12px; padding: 4px 10px; font-size: 0.75rem; color: #aaa; }
-#btn-reset { padding: 5px 12px; border-radius: 12px; border: 1px solid #e94560;
-  background: transparent; color: #e94560; cursor: pointer; font-size: 0.8rem; }
+.badge { background: #0f3460; border-radius: 12px; padding: 4px 10px; font-size: 0.75rem; color: #aaa; white-space: nowrap; flex-shrink: 0; }
+#btn-reset { padding: 7px 12px; border-radius: 12px; border: 1px solid #e94560; flex-shrink: 0;
+  background: transparent; color: #e94560; cursor: pointer; font-size: 0.85rem; white-space: nowrap; }
 #btn-reset:hover { background: #e94560; color: #fff; }
-#container { width: 100%; height: 100vh; padding-top: 46px; }
+#container { width: 100%; height: 100vh; padding-top: 50px; }
 svg { width: 100%; height: 100%; }
 .link { fill: none; stroke: #0f3460; stroke-width: 1.5px; }
 .link.leaf-link { stroke: #333; stroke-dasharray: 4,3; }
@@ -56,8 +57,7 @@ svg { width: 100%; height: 100%; }
   background: none; border: none; color: #888; cursor: pointer; font-size: 1.1rem; }
 #close-panel:hover { color: #fff; }
 #search-results {
-  position: fixed; left: 8px; right: 8px; top: 46px;
-  max-width: calc(100vw - 16px);
+  position: fixed; left: 8px; right: 8px;
   background: #16213e; border: 1px solid #0f3460;
   border-radius: 0 0 8px 8px; max-height: 55vh;
   overflow-y: auto; overflow-x: hidden;
@@ -83,10 +83,8 @@ svg { width: 100%; height: 100%; }
   border-radius: 8px; padding: 10px 14px; font-size: 0.73rem; color: #888; z-index: 50;
   max-width: 180px; line-height: 1.7;
 }
-@media (max-width: 600px) {
-  #header { padding: 8px 10px; gap: 8px; }
+@media (max-width: 900px), (pointer: coarse) {
   #header h1 { display: none; }
-  #search { max-width: 100%; font-size: 1rem; padding: 9px 14px; }
   .badge { display: none; }
   #legend { display: none; }
   #instructions { display: none; }
@@ -273,11 +271,12 @@ function toggle(d) {
 root.x0 = 0; root.y0 = 0;
 update(root);
 
-// Fit visible nodes to viewport after first render
-(function fitView() {
+function fitView() {
   const svgEl = document.getElementById("tree-svg");
-  const W = svgEl.clientWidth, H = svgEl.clientHeight;
-  const visibleNodes = root.descendants(); // only expanded nodes (depth 0-1)
+  const W = svgEl.clientWidth || window.innerWidth;
+  const H = svgEl.clientHeight || (window.innerHeight - 50);
+  if (W === 0 || H === 0) { requestAnimationFrame(fitView); return; }
+  const visibleNodes = root.descendants();
   if (!visibleNodes.length) return;
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
   visibleNodes.forEach(d => {
@@ -287,13 +286,13 @@ update(root);
     }
   });
   const pad = 80;
-  const treeW = y1 - y0 + pad * 2;
-  const treeH = x1 - x0 + pad * 2;
-  const scale = Math.min(W / treeW, H / treeH, 1.4); // cap at 1.4
+  const scale = Math.min(W / (y1 - y0 + pad * 2), H / (x1 - x0 + pad * 2), 1.4);
   const tx = W / 2 - (y0 + (y1 - y0) / 2) * scale;
   const ty = H / 2 - (x0 + (x1 - x0) / 2) * scale;
   svg.call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
-})();
+}
+// Wait for DOM to render before fitting
+requestAnimationFrame(fitView);
 
 // ── Info panel ────────────────────────────────────────────────────────────────
 function showPanel(d) {
@@ -326,6 +325,11 @@ document.getElementById("close-panel").onclick = () =>
 const searchInput = document.getElementById("search");
 const searchResults = document.getElementById("search-results");
 
+function positionResults() {
+  const rect = document.getElementById("header").getBoundingClientRect();
+  searchResults.style.top = rect.bottom + "px";
+}
+
 searchInput.addEventListener("input", () => {
   const q = searchInput.value.trim().toLowerCase();
   if (q.length < 2) { searchResults.style.display = "none"; return; }
@@ -333,6 +337,7 @@ searchInput.addEventListener("input", () => {
   const matches = allNodes.filter(d => d.data.name && d.data.name.toLowerCase().includes(q));
   if (matches.length === 0) {
     searchResults.innerHTML = "<div id='no-results'>Ei tuloksia</div>";
+    positionResults();
     searchResults.style.display = "block";
     return;
   }
@@ -360,6 +365,7 @@ searchInput.addEventListener("input", () => {
       searchInput.value = "";
     });
   });
+  positionResults();
   searchResults.style.display = "block";
 });
 
@@ -399,16 +405,7 @@ document.getElementById("btn-reset").onclick = () => {
   });
   update(root);
   nodesLayer.selectAll("g.node").classed("found", false).classed("ancestor", false);
-  setTimeout(() => {
-    const svgEl = document.getElementById("tree-svg");
-    const W = svgEl.clientWidth, H = svgEl.clientHeight;
-    const vis = root.descendants();
-    let x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;
-    vis.forEach(d => { if(d.x!==undefined){x0=Math.min(x0,d.x);x1=Math.max(x1,d.x);y0=Math.min(y0,d.y);y1=Math.max(y1,d.y);} });
-    const pad=80, scale=Math.min(W/(y1-y0+pad*2), H/(x1-x0+pad*2), 1.4);
-    const tx=W/2-(y0+(y1-y0)/2)*scale, ty=H/2-(x0+(x1-x0)/2)*scale;
-    svg.transition().duration(600).call(zoom.transform, d3.zoomIdentity.translate(tx,ty).scale(scale));
-  }, 450);
+  setTimeout(fitView, 450);
   document.getElementById("info-panel").classList.remove("open");
 };
 </script>
