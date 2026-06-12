@@ -11,7 +11,7 @@ Interaktiivinen sukupuuvisualisointi Leinosen suvulle, joka juontaa juurensa Hei
 
 ## Visualisoinnin ominaisuudet
 
-- **530 perhettä** ja **2840+ henkilöä** hierarkkisena puuna
+- **530 perhettä** ja **1853 henkilöä** hierarkkisena puuna
 - Heikki Leinonen (1713–1796) juurena, haarat laajenevat ~20 sukupolveen asti
 - Zoomaus ja panorointi hiirellä / sormella
 - Klikkaaminen avaa ja sulkee haaroja
@@ -37,7 +37,9 @@ Interaktiivinen sukupuuvisualisointi Leinosen suvulle, joka juontaa juurensa Hei
 PDF parsittu Pythonilla (`pdfplumber`), joka:
 1. Erottaa kaksisarakkeisen sivun erikseen
 2. Poimii jokaisen `PERHE`-tietueen: päähenkilö, syntymä/kuolema, puoliso, lapsiviittaukset, lehtilapset
-3. Rakentaa hierarkkisen JSON-puun (68 kt → 394 kt kaikkine lapsineen)
+3. Rakentaa hierarkkisen JSON-puun (68 kt → 255 kt kaikkine lapsineen)
+
+Lehtilapset (violetit solmut) ovat henkilöitä joilla ei ole omaa PERHE-numeroa. Parseri tunnistaa heidät nimityypistä ja suodattaa pois paikannimet, muuttoilmoitukset ja muut tekstifragmentit. Myös nimet muodossa "poika/tytär Sukunimi" (nimetön lapsi) näkyvät omina solmunaan.
 
 Visualisointi tehty D3.js v7:llä (collapsible tree, zoom/pan, haku).
 Kaikki data on upotettu suoraan HTML-tiedostoon – ei vaadi erillistä palvelinta tai tietokantaa.
