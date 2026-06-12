@@ -158,6 +158,23 @@ allNodes.forEach(d => {
 const treeLayout = d3.tree().nodeSize([22, 230]).separation((a, b) => a.parent === b.parent ? 1 : 1.2);
 let nodeUid = 0;
 
+// Drag behavior for nodes — modifies d.x/d.y directly so layout stays consistent
+const dragBehavior = d3.drag()
+  .on("start", function(event, d) {
+    event.sourceEvent.stopPropagation();
+    d._dragged = false;
+  })
+  .on("drag", function(event, d) {
+    if (Math.abs(event.dx) > 2 || Math.abs(event.dy) > 2) d._dragged = true;
+    d.x += event.dy;   // d.x = vertical axis in this rotated tree
+    d.y += event.dx;   // d.y = horizontal axis
+    d._manualX = d.x;
+    d._manualY = d.y;
+    d3.select(this).attr("transform", "translate(" + d.y + "," + d.x + ")");
+    linksLayer.selectAll("path.link").attr("d", diagonal);
+  })
+  .on("end", function(event, d) {});
+
 const zoom = d3.zoom().scaleExtent([0.04, 3])
   .on("zoom", event => zoomLayer.attr("transform", event.transform));
 svg.call(zoom);
@@ -201,6 +218,10 @@ function linkClass(d) {
 
 function update(source) {
   treeLayout(root);
+  // Re-apply manual drag positions (treeLayout resets d.x/d.y)
+  root.descendants().forEach(d => {
+    if (d._manualX !== undefined) { d.x = d._manualX; d.y = d._manualY; }
+  });
   const nodes = root.descendants(), links = root.links();
   const srcPt = { x: source.x0 !== undefined ? source.x0 : source.x,
                   y: source.y0 !== undefined ? source.y0 : source.y };
@@ -226,10 +247,12 @@ function update(source) {
     .attr("transform", "translate(" + srcPt.y + "," + srcPt.x + ")")
     .on("click", (event, d) => {
       event.stopPropagation();
+      if (d._dragged) { d._dragged = false; return; }
       if (!d.data.is_leaf_child) { toggle(d); update(d); }
       else showPanel(d);
     })
-    .on("contextmenu", (event, d) => { event.preventDefault(); showPanel(d); });
+    .on("contextmenu", (event, d) => { event.preventDefault(); showPanel(d); })
+    .call(dragBehavior);
 
   nodeEnter.append("circle").attr("r", 5);
 
